@@ -1,5 +1,5 @@
 """
-The BRAF file contains objects that generate
+The BRFA file contains objects that generate
 a KNN and a Random Forest. See helper on each
 object for more information.
 
