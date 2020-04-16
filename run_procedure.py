@@ -1,33 +1,12 @@
 '''
 This script contains the main() function to run 
-the BARF procedure. 
+the BRAF procedure. 
 
-Flags that can be used include remove, k, p, s
+Flags that can be used include k, p, s
 
 `k`, `p`, and `s` are the hyperparameter described in the
 "Biased Random Forest for Dealing with the Class
 Imbalance Problem" paper.
-
-The flag `remove` removes all rows without
-observations for `SkinThickness`, `Glucose`,
-`BloodPressure` and `Insulin`.
-
-IT WAS SHOWN IN STUDIES THAT REMOVING OBSERVATIONS
-FOR WHICH `SkinThickness` and `Insulin` ARE MISSING
-IMPROVES THE ACCURACY OF MODELS ON THIS DATA SET.
-THE FOLLOWING STUDY SHOWS THAT:
-
-J.L. Breault
-Data mining diabetic databases: are rough sets a useful addition?
-E. Wegman, A. Braverman, A. Goodman, P. Smyth (Eds.), Computing Science and Statistics, 33, Interface Foundation of North America, Fairfax Station, VA (2001), pp. 51-60
-    
-If the flag remove is equal to 0 (i.e. false), then I impute
-zero values for Glucose, SkinThickness, Insulin, BMI and Blood Pressure
-with their mean respective values from the training set.
-
-No ML/AI API was used as part of this script except
-for computing the area under the curve metrics and feeding data
-into pyplot for ploting the curves.
 
 For information on the KNN, DecisionTree, RandomForest, 
 and BRAF_pipeline objects, please see BRAF.py
@@ -45,20 +24,12 @@ from BRAF import KNN, DecisionTree, RandomForest, BRAF_pipeline
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score, roc_curve
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--remove", type=int)
 parser.add_argument("--k", type=int)
 parser.add_argument("--p", type=float)
 parser.add_argument("--s", type=int)
 
 args = parser.parse_args()
 
-if args.remove:
-    if args.remove == 1:
-        REMOVE = True
-    else:
-        REMOVE = False
-else:
-    REMOVE = False
 if args.k:
     K = args.k
 else:
@@ -73,9 +44,9 @@ else:
     S = 100
 
 print('\n----------------------------------------')
-print('\nRunning procedure with remove={}, K={}, P={}, S={}\n'.format(REMOVE, K, P, S))
+print('\nRunning procedure with K={}, P={}, S={}\n'.format(K, P, S))
 
-def read_data(path='diabetes.csv'):
+def read_data(path=''):
     
     ''' 
     Read csv from path into a pandas dataframe
@@ -230,83 +201,6 @@ def metrics(true, pred, prob):
 
     return precision, recall, area, score
 
-
-def imputation_mean(df_train, df_test):
-
-    '''
-    Function to imput BMI for 0 values using the mean
-    BMI from the training set
-    
-    Parameters
-    ----------
-    
-    df_train: Pandas DataFrame
-        Dataframe with the training set
-    
-    df_test: Pandas DataFrame
-            Dataframe with the test set
-    '''
-
-    mean_BMI = np.mean(df_train.loc[df_train['BMI']!=0, 'BMI'])
-    mean_glucose = np.mean(df_train.loc[df_train['Glucose']!=0,
-                                        'Glucose'])
-    mean_bp = np.mean(df_train.loc[df_train['BloodPressure']!=0,
-                                   'BloodPressure'])
-    mean_st = np.mean(df_train.loc[df_train['SkinThickness']!=0,
-                                   'SkinThickness'])
-    mean_insulin = np.mean(df_train.loc[df_train['Insulin']!=0,
-                                        'Insulin'])
-                                   
-    df_train.loc[df_train['BMI']==0, ['BMI']] = mean_BMI
-    df_test.loc[df_test['BMI']==0, ['BMI']] = mean_BMI
-    
-    df_train.loc[df_train['Glucose']==0, ['Glucose']] = mean_glucose
-    df_test.loc[df_test['Glucose']==0, ['Glucose']] = mean_glucose
-    
-    df_train.loc[df_train['BloodPressure']==0, ['BloodPressure']] = mean_bp
-    df_test.loc[df_test['BloodPressure']==0, ['BloodPressure']] = mean_bp
-    
-    df_train.loc[df_train['SkinThickness']==0, ['SkinThickness']] = mean_st
-    df_test.loc[df_test['SkinThickness']==0, ['SkinThickness']] = mean_st
-
-    df_train.loc[df_train['Insulin']==0, ['Insulin']] = mean_insulin
-    df_test.loc[df_test['Insulin']==0, ['Insulin']] = mean_insulin
-    
-    return df_train, df_test
-
-
-def scale_data(df_train, df_test):
-
-    '''
-    Function to scale data between 0 and 1.
-    Since we are running K-NN and using the
-    Euclidean distance to assess nearest neighbors,
-    the scale of the data is important.
-    
-    We'll do a simple scaling so that all values fall
-    between 0 and 1 in the training set.
-    
-    The training set scaler is used to scale the test set.
-    
-    Parameters
-    ----------
-    
-    df_train: Pandas DataFrame
-        Dataframe with the training set
-    
-    df_test: Pandas DataFrame
-        Dataframe with the test set
-    
-    '''
-        
-    max_values_train = df_train.loc[:, df_train.columns != 'Outcome'].max()
-    df_train.loc[:, df_train.columns != 'Outcome'] = \
-        df_train.loc[:, df_train.columns != 'Outcome'] / max_values_train
-    df_test.loc[:, df_test.columns != 'Outcome'] = \
-        df_test.loc[:, df_test.columns != 'Outcome'] / max_values_train
-    
-    return df_train, df_test
-
     
 def plot_ROC(true, prob, name):
     
@@ -368,27 +262,8 @@ def main():
     # Reading data
     df = read_data()
     
-    if REMOVE:
-        df = df.loc[(df['Glucose']!=0)&
-                (df['BloodPressure']!=0)&
-                (df['SkinThickness']!=0)&
-                (df['Insulin']!=0), :]
-        df.reset_index(drop=True, inplace=True)
-        
     # Split into Training and Test Sets
     df_train, df_test = split_train_test(df)
-    
-    # Imputing zeros with mean from training set
-    if REMOVE == False:
-        df_train, df_test = imputation_mean(df_train, df_test)
-    
-    # Scaling data as KNN is impacted by scale of features
-    df_train, df_test = scale_data(df_train, df_test)
-    
-    print("\nThere's {:.1f}% Outcome=1 in the training set"\
-          .format(100*np.mean(df_train['Outcome'])))
-    print("There's {:.1f}% Outcome=1 in the test set\n"\
-          .format(100*np.mean(df_test['Outcome'])))
     
     # Performing CV training
     cross_val_training(df_train)
